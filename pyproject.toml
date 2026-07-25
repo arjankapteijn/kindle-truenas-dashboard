@@ -1,0 +1,41 @@
+[project]
+name = "kindle-truenas-dashboard"
+version = "0.0.0"  # de echte versie komt uit de git-tag (docker-publish.yml)
+description = "Rendert een statusdashboard van een TrueNAS SCALE server als PNG, voor weergave op een jailbroken Kindle"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "Pillow>=10.3,<13",
+    # Niet op PyPI gepubliceerd; pin op de tag die overeenkomt met de
+    # TrueNAS-serverversie (zie https://github.com/truenas/api_client/tags).
+    "truenas_api_client @ git+https://github.com/truenas/api_client.git@TS-25.10.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<10",
+    "ruff>=0.6,<0.16",
+]
+
+[project.scripts]
+kindle-dashboard = "kindle_dashboard.main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"

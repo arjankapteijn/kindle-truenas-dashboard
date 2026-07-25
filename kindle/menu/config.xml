@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!--
+    KUAL-menu voor de kindle-truenas-dashboard refresh-loop.
+    Plaats deze map (kindle-dashboard/) onder /mnt/us/extensions/ zodat
+    KUAL 'm oppikt. Zie ../README.md voor de volledige installatie-instructies.
+-->
+<menu>
+    <item>
+        <text>Start TrueNAS-dashboard refresh-loop</text>
+        <action type="script">./fetch_and_display.sh</action>
+    </item>
+</menu>

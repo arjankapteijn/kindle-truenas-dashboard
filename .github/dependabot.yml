@@ -1,0 +1,63 @@
+# Dependabot — automatische dependency-updates.
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates
+#
+# LET OP: dit regelt de wekelijkse *versie*-PR's. De SECURITY-meldingen
+# (Dependabot alerts) en automatische security-fixes zet je los hiervan aan
+# via GitHub → Settings → Code security and analysis.
+version: 2
+updates:
+  # ── Python (Pillow / dev-tools) ───────────────────────────────────────
+  # truenas_api_client is een git-dependency (niet op PyPI) en wordt niet
+  # door Dependabot gevolgd — de TS-25.10.4-pin in pyproject.toml moet je
+  # zelf bijwerken als je TrueNAS upgradet.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Amsterdam"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+    groups:
+      minor-en-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── Docker base-image (python:3.12-slim) ─────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Amsterdam"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "docker"
+    # blijf op Python 3.12; geen PR's die naar een nieuwe minor duwen zonder
+    # dat je de CI-versie meebumpt. Haal dit weg als je dat wél wilt.
+    ignore:
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  # ── GitHub Actions (CI + publish workflows) ──────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Amsterdam"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "ci"

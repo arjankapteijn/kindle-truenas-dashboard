@@ -1,0 +1,50 @@
+# Self-scheduling container: draait continu, ververst de dashboard-PNG elke
+# KD_POLL_INTERVAL_SECONDS en serveert 'm over HTTP op poort 8000 zodat de
+# Kindle 'm periodiek kan ophalen (pull, i.p.v. dat deze container 'm ergens
+# naartoe pusht zoals lovebox dat doet).
+#
+# /data moet schrijfbaar zijn voor de non-root app-user (uid 10001): daar
+# staat het heartbeat-bestand (voor de healthcheck) en de laatste
+# dashboard.png. Gebruik een NAMED VOLUME — die erft de juiste eigenaar
+# (app:app) uit het image. Een tmpfs werkt hier NIET: die is niet
+# schrijfbaar voor de app-user, waardoor de healthcheck faalt en de app op
+# "deploying" blijft hangen.
+#
+# LET OP: onder deze read-only rootfs is /data (via de named volume) de
+# ENIGE schrijfbare plek buiten /tmp. KD_DATA_DIR (env var, zie .env.example)
+# staat los geconfigureerd in de app, maar als je 'm hier verandert moet je
+# zowel dit volume-pad als het Dockerfile-image opnieuw bouwen zodat ze
+# overeenkomen — anders kan de app nergens meer schrijven.
+#
+# LET OP (TrueNAS custom-app gotcha): `env_file` moet een ABSOLUUT pad zijn
+# (bv. /mnt/apps/kindle-dashboard/.env) — een relatief pad wordt door
+# TrueNAS naar /tmp/.env herschreven en faalt dan stil.
+#
+# Updaten: met :latest + pull_policy always de app opnieuw deployen. Voor
+# reproduceerbaarheid kun je ook een vaste tag pinnen (bijv. :0.3.1).
+services:
+  kindle-dashboard:
+    image: ghcr.io/arjankapteijn/kindle-truenas-dashboard:latest
+    container_name: kindle-dashboard
+    pull_policy: always
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    # Hardening: non-root (in image), read-only rootfs, geen extra
+    # capabilities, geen privilege-escalatie, bescheiden geheugen-/pids-limieten.
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m
+    volumes:
+      - kindle-dashboard-data:/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 128
+
+volumes:
+  kindle-dashboard-data:
