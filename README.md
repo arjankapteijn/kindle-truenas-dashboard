@@ -170,6 +170,15 @@ vanzelfsprekend uit de officiële docs bleken (geverifieerd tegen een live
   geteste server geen geldige netdata-metriek te zijn (server-side
   `KeyError`) — alleen `arcsize` is betrouwbaar beschikbaar, dus alleen de
   ARC-grootte wordt getoond, geen hitrate.
+- **Systeembrede `reporting.netdata_get_data`-grafieken (`cpu`, `cputemp`,
+  `memory`, `arcsize`, `load`) geven de `identifier` terug gelijk aan de
+  `name`** (bv. `{"name": "cpu", "identifier": "cpu"}`), ook al vraag je ze
+  op met `identifier: null`. Reken dus niet op een `null`-identifier terug
+  te krijgen voor systeembrede grafieken — anders belanden ze onder een
+  samengestelde sleutel (`"cpu:cpu"`) in plaats van de kale naam (`"cpu"`),
+  en toont het dashboard "onbekend"/`?%` voor CPU, temperatuur, geheugen en
+  ARC terwijl per-apparaat-grafieken (schijftemperatuur, netwerk) wél
+  gewoon werken.
 - **SMART-status** komt niet als los veld uit `disk.query`/`disk.details` —
   die info zit in het **alert-systeem** (`alert.list`), samen met
   pool-degraded-meldingen e.d. Vandaar de "Actieve meldingen"-sectie
@@ -190,6 +199,27 @@ vanzelfsprekend uit de officiële docs bleken (geverifieerd tegen een live
   HTTPS Port", vaak `8443`) — niet via een tussenliggende reverse proxy en
   niet via de plain-HTTP-poort. Die poort gebruikt meestal een
   zelfondertekend certificaat, vandaar `KD_TRUENAS_VERIFY_SSL=false`.
+- **De "UI Allowlist" blokkeert apps op je eigen TrueNAS stilzwijgend.**
+  Als System Settings → General → "Allowlist" is ingesteld (een lijst van
+  toegestane IP's/netwerken voor de UI/API — leeg = iedereen toegestaan),
+  dan wordt elke verbinding van buiten die lijst afgewezen met websocket
+  close-code **1008** en reden `"You are not allowed to access this
+  resource"`. Elke TrueNAS custom app draait op een **eigen, geïsoleerd**
+  docker-netwerk (`ix-<appnaam>_default`, gateway bv. `172.16.11.1`) — dat
+  netwerk zit vrijwel zeker niet in je allowlist, ook al staat je eigen LAN
+  er wel in. Symptoom in de logs van deze app: een nietszeggende
+  `WebSocket connection closed with code=None, reason=None` (de
+  Python-client verbergt de eigenlijke close-reden helaas).
+  **Oplossing:**
+  ```bash
+  # Bekijk de huidige lijst (bewaar deze entries!):
+  midclt call system.general.config | python3 -c "import json,sys; print(json.load(sys.stdin)['ui_allowlist'])"
+  # Voeg 172.16.0.0/16 toe (dekt alle ix-apps-netwerken) naast je bestaande entries:
+  midclt call system.general.update '{"ui_allowlist": ["<jouw-bestaande-entries>", "172.16.0.0/16"]}'
+  # De nginx-laag van TrueNAS zelf moet herladen om dit door te voeren:
+  midclt call service.reload http
+  ```
+  Gebruik je geen Allowlist (lege lijst)? Dan speelt dit probleem niet.
 
 ## Beveiliging
 

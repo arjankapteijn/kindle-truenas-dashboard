@@ -105,7 +105,15 @@ class Snapshot:
 
 
 def _graph_key(name: str, identifier: str | None) -> str:
-    return name if identifier is None else f"{name}:{identifier}"
+    """TrueNAS geeft voor systeembrede grafieken (cpu, cputemp, memory,
+    arcsize, load) de identifier terug als gelijk aan de naam zelf (bv.
+    `{"name": "cpu", "identifier": "cpu"}`) in plaats van `null`, ook al is
+    er bij het opvragen `identifier: None` meegegeven. Zonder deze check
+    zouden deze grafieken onder sleutels als "cpu:cpu" belanden terwijl de
+    renderer op de kale naam ("cpu") zoekt."""
+    if identifier is None or identifier == name:
+        return name
+    return f"{name}:{identifier}"
 
 
 def _extract_datetime(value: Any) -> datetime | None:

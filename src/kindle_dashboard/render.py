@@ -355,12 +355,13 @@ def _draw_pools_section(draw: ImageDraw.ImageDraw, snapshot: Snapshot, y: int) -
     f_used_label = load_font(16)
     bar_w = CONTENT_W
     bar_h = 26
-    # Worst-case budget per pool: naamregel (32) + balk (bar_h+8) + optionele
-    # scanregel (26, alleen als _scan_summary() iets teruggeeft) + marge (12).
-    # Moet het ERGSTE geval dekken (mét scanregel), anders kan de laatste pool
-    # die "past" alsnog voorbij CONTENT_BOTTOM tekenen zodra er wél een actieve
-    # scrub/resilver is — vandaar geen gemiddelde, maar de volledige som.
-    block_h = 32 + (bar_h + 8) + 26 + 12
+    # Worst-case budget per pool: naamregel (32) + gebruikslabel (22) + balk
+    # (bar_h+8) + optionele scanregel (26, alleen als _scan_summary() iets
+    # teruggeeft) + marge (12). Moet het ERGSTE geval dekken (mét scanregel),
+    # anders kan de laatste pool die "past" alsnog voorbij CONTENT_BOTTOM
+    # tekenen zodra er wél een actieve scrub/resilver is — vandaar geen
+    # gemiddelde, maar de volledige som.
+    block_h = 32 + 22 + (bar_h + 8) + 26 + 12
 
     pools = list(snapshot.pools)
     for shown, pool in enumerate(pools):
@@ -377,10 +378,15 @@ def _draw_pools_section(draw: ImageDraw.ImageDraw, snapshot: Snapshot, y: int) -
         draw.text((MARGIN + CONTENT_W - sw, y + 3), status_text, font=f_body, fill=INK)
         y += 32
 
+        # Label BOVEN de balk (niet erover heen) — anders valt donkere tekst
+        # samen met de donkere vulling van de balk weg (slechte leesbaarheid).
+        used_label = f"{_fmt_bytes(pool.allocated)} / {_fmt_bytes(pool.size)}"
+        lw = draw.textlength(used_label, font=f_used_label)
+        draw.text((MARGIN + CONTENT_W - lw, y), used_label, font=f_used_label, fill=MUTED)
+        y += 22
+
         frac = (pool.allocated / pool.size) if pool.size and pool.allocated is not None else 0.0
         _bar(draw, MARGIN, y, bar_w, bar_h, frac)
-        used_label = f"{_fmt_bytes(pool.allocated)} / {_fmt_bytes(pool.size)}"
-        draw.text((MARGIN + 8, y + 2), used_label, font=f_used_label, fill=INK)
         y += bar_h + 8
 
         scan_text = _scan_summary(pool.scan)
