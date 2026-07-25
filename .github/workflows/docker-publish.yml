@@ -18,6 +18,9 @@ on:
       - 'docker-compose.yml' # deploy-referentie, zit niet in het image
       - 'kindle/**' # Kindle-side scriptlets, zit niet in het image
     tags: ['v*']
+  # Handmatig een build/release kunnen forceren (bv. de allereerste release
+  # bootstrappen, of opnieuw bouwen zonder een lege commit te hoeven pushen).
+  workflow_dispatch: {}
 
 # nieuwe push op dezelfde branch annuleert een nog lopende build
 concurrency:
