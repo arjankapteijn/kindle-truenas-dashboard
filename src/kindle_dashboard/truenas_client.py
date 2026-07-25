@@ -132,10 +132,19 @@ def _extract_datetime(value: Any) -> datetime | None:
     return None
 
 
-def fetch_snapshot(url: str, api_key: str) -> Snapshot:
-    """Open één websocket-sessie, log in met de API-key en haal alles op."""
+def fetch_snapshot(url: str, api_key: str, *, verify_ssl: bool = True) -> Snapshot:
+    """Open één websocket-sessie, log in met de API-key en haal alles op.
+
+    LET OP: TrueNAS trekt een API-key automatisch in zodra die succesvol
+    gebruikt wordt over een verbinding die de middleware niet als
+    "secure transport" (echte TLS, rechtstreeks naar TrueNAS' eigen HTTPS-
+    poort) herkent -- een reverse proxy die zelf TLS termineert en intern
+    over plain HTTP doorstuurt telt daar NIET voor. Gebruik dus `wss://`
+    rechtstreeks naar TrueNAS' eigen HTTPS-poort, niet via een tussenliggende
+    proxy of TrueNAS' interne plain-HTTP-poort.
+    """
     try:
-        with Client(uri=url) as c:
+        with Client(uri=url, verify_ssl=verify_ssl) as c:
             if not c.call("auth.login_with_api_key", api_key):
                 raise TrueNasError(
                     "TrueNAS API-key werd geweigerd (ongeldig, verlopen of ingetrokken)"

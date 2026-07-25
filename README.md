@@ -78,7 +78,8 @@ ruff check . && ruff format --check . && pytest
 python scripts/render_preview.py preview.png
 
 # Eén keer live tegen je TrueNAS-server renderen (i.p.v. de scheduler+server):
-KD_TRUENAS_URL=ws://172.16.0.1:8080/api/current \
+KD_TRUENAS_URL=wss://172.16.0.1:8443/api/current \
+KD_TRUENAS_VERIFY_SSL=false \
 KD_TRUENAS_API_KEY=1-... \
 KD_RUN_ONCE=true KD_DATA_DIR=/tmp \
   python -m kindle_dashboard.main
@@ -178,6 +179,17 @@ vanzelfsprekend uit de officiële docs bleken (geverifieerd tegen een live
   (standaard) met één websocket-sessie per ronde kom je daar in de verste
   verte niet bij in de buurt, maar vermijd korte polling-intervallen bij
   het debuggen.
+- **API-keys worden automatisch ingetrokken bij gebruik over een "onveilige"
+  verbinding.** Dit is een ingebouwde TrueNAS-beveiliging (geen bug hier):
+  zodra `auth.login_with_api_key` succesvol is over een transport dat de
+  middleware niet als echte TLS herkent, trekt TrueNAS de gebruikte key
+  meteen in. Een reverse proxy die zelf TLS termineert en er intern plain
+  HTTP van maakt (zoals TrueNAS' eigen UI-poort 8080 standaard is) telt daar
+  **niet** voor. Gebruik daarom altijd `wss://` rechtstreeks naar TrueNAS'
+  **eigen** HTTPS-poort (System Settings → General → GUI → "Web Interface
+  HTTPS Port", vaak `8443`) — niet via een tussenliggende reverse proxy en
+  niet via de plain-HTTP-poort. Die poort gebruikt meestal een
+  zelfondertekend certificaat, vandaar `KD_TRUENAS_VERIFY_SSL=false`.
 
 ## Beveiliging
 
@@ -185,10 +197,10 @@ vanzelfsprekend uit de officiële docs bleken (geverifieerd tegen een live
 poort 8000 op je netwerk kan bereiken ziet hostnaam, TrueNAS-versie,
 disk-modellen/temperaturen, pool-namen, app-lijst en alert-tekst. Prima voor
 een afgeschermd thuisnetwerk; **forward deze poort niet naar het internet**.
-De interne verbinding met TrueNAS (`ws://172.16.0.1:8080/...`, het
-apps-netwerkadres) verstuurt de API-key in cleartext (vereist voor
-TrueNAS 25.10-compatibiliteit) — dit blijft binnen het interne docker-
-appnetwerk, niet over het LAN of internet.
+De verbinding met TrueNAS (`wss://172.16.0.1:8443/...`, TrueNAS' eigen
+HTTPS-poort binnen het interne docker-appnetwerk) is TLS-versleuteld —
+zie de kanttekening hierboven over waarom dat verplicht is (anders trekt
+TrueNAS de API-key zelf automatisch in).
 
 ---
 

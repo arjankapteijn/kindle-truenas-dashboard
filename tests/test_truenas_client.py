@@ -41,7 +41,10 @@ _MINIMAL_RESPONSES = {
 
 
 def _fetch_with(responses):
-    with patch("kindle_dashboard.truenas_client.Client", lambda uri: _FakeClient(responses)):
+    with patch(
+        "kindle_dashboard.truenas_client.Client",
+        lambda uri, verify_ssl=True: _FakeClient(responses),
+    ):
         return fetch_snapshot("ws://example.invalid/api/current", "1-test")
 
 
@@ -81,7 +84,7 @@ def test_fetch_snapshot_rejects_invalid_api_key():
     with (
         patch(
             "kindle_dashboard.truenas_client.Client",
-            lambda uri: _RejectingClient(_MINIMAL_RESPONSES),
+            lambda uri, verify_ssl=True: _RejectingClient(_MINIMAL_RESPONSES),
         ),
         pytest.raises(TrueNasError),
     ):

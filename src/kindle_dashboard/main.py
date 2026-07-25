@@ -35,7 +35,9 @@ def build_dashboard(config: Config) -> bool:
     """
     print(f"[dashboard] TrueNAS-snapshot ophalen van {config.truenas_url}...", flush=True)
     try:
-        snapshot = fetch_snapshot(config.truenas_url, config.truenas_api_key)
+        snapshot = fetch_snapshot(
+            config.truenas_url, config.truenas_api_key, verify_ssl=config.truenas_verify_ssl
+        )
     except TrueNasError as exc:
         print(f"  ! Ophalen mislukt: {exc}. Dashboard wordt niet ververst.", flush=True)
         return False

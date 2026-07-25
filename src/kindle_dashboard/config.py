@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 class Config:
     truenas_url: str  # bv. wss://truenas.example.com/api/current
     truenas_api_key: str
+    truenas_verify_ssl: bool
     poll_interval_seconds: int
     timezone: str
     data_dir: str
@@ -67,6 +68,11 @@ def load_config(env: Mapping[str, str] | None = None) -> Config:
     return Config(
         truenas_url=_get(env, "KD_TRUENAS_URL"),
         truenas_api_key=_get(env, "KD_TRUENAS_API_KEY"),
+        # TrueNAS's eigen HTTPS-poort gebruikt vaak een zelfondertekend
+        # certificaat (zeker bij rechtstreeks verbinden, buiten een eigen
+        # reverse proxy om) -- vandaar standaard uit, expliciet aanzetten
+        # zodra je een vertrouwd certificaat gebruikt.
+        truenas_verify_ssl=_get_bool(env, "KD_TRUENAS_VERIFY_SSL", False),
         poll_interval_seconds=_get_int(env, "KD_POLL_INTERVAL_SECONDS", 300),
         timezone=_get_timezone(env, "KD_TZ", "Europe/Amsterdam"),
         data_dir=_get(env, "KD_DATA_DIR", "/data"),
