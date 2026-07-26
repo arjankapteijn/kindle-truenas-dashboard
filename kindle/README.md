@@ -9,10 +9,11 @@ slapen (zie "Hoe de verversing werkt" hieronder).
 geverifieerd op een jailbroken Kindle Voyage (2026-07-26). Het ophalen zelf
 werkte in eerste opzet ook (vaste 5-minuten-polling), maar bleek uren stil
 te vallen zodra het toestel echt sliep (WiFi gaat dan uit) — zie
-"Problemen oplossen" voor hoe we dat ontdekten. `fetch_and_display.sh` is
-daarna omgebouwd naar het event-gedreven ontwerp hieronder; **dat exacte
-ontwerp is nog niet opnieuw op het fysieke toestel getest**, dus controleer
-na installatie of het écht ververst vlak vóór het slapen gaan.
+"Hoe de verversing werkt" hieronder. De eerste event-gedreven versie
+gebruikte het verkeerde IPC-event (`goingToSleep`, bestaat niet) en vuurde
+daardoor nooit; inmiddels gecorrigeerd naar het bevestigde
+`goingToScreenSaver`-event, maar **dat is nog niet opnieuw fysiek getest**
+— controleer na installatie of het écht ververst vlak vóór het slapen gaan.
 
 ## Vereisten (al aanwezig volgens jouw opzet)
 
@@ -80,12 +81,18 @@ na installatie of het écht ververst vlak vóór het slapen gaan.
 ## Hoe de verversing werkt
 
 Het script blijft op de achtergrond draaien, maar polt niet blind op een
-vaste interval. In plaats daarvan wacht het met `lipc-wait-event` op het
-`goingToSleep`-IPC-event (hetzelfde soort event dat vrijwel elke
-Kindle-jailbreak-hack gebruikt om iets te doen vlak voor het toestel
-slaapt) en haalt dan **meteen** de laatste dashboard-PNG op — precies het
-moment dat er toch al een screensaver getoond gaat worden, dus de data is
-altijd zo vers als je 'm ziet.
+vaste interval. In plaats daarvan wacht het met
+`lipc-wait-event -m com.lab126.powerd goingToScreenSaver` op het moment dat
+het toestel een screensaver gaat tonen, en haalt dan **meteen** de laatste
+dashboard-PNG op — precies vlak voordat linkss de screensaver samenstelt,
+dus de data is zo vers als redelijkerwijs mogelijk.
+
+(Eerdere versie van dit script gebruikte `goingToSleep` als event-naam —
+dat bestaat niet binnen `com.lab126.powerd` en vuurde dus nooit. Het
+bevestigde event heet `goingToScreenSaver`, zoals gedocumenteerd in
+[deze blogpost over Kindle-huisautomatisering](https://blog.davidv.dev/posts/integrating-a-kindle-into-house-automation/),
+waar live `lipc-wait-event -mt "com.lab126.powerd" "*"`-output
+`goingToScreenSaver`/`outOfScreenSaver` laat zien.)
 
 Waarom niet gewoon elke 5 minuten pollen? Dat was de oorspronkelijke opzet,
 maar op dit toestel bleek `fetch.log` gaten van 1,5 tot 2,5 uur te tonen
@@ -126,10 +133,14 @@ beëindigen.
     Dat is de kernreden voor het event-gedreven ontwerp — als
     `lipc-wait-event` op jouw firmware ontbreekt, is verder uitzoeken nodig
     waarom (mogelijk een andere padnaam of firmwareversie).
-  - Staat er wel "wacht op goingToSleep-events" maar komen er geen nieuwe
-    regels bij na een sleep-cyclus? Dan vuurt het `goingToSleep`-event op
-    dit toestel mogelijk niet (of onder een andere naam) — dit is de stap
-    die nog niet op het fysieke toestel is bevestigd.
+  - Staat er wel "wacht op goingToScreenSaver-events" maar komen er geen
+    nieuwe regels bij na een echte sleep-cyclus (aan/uit-knop kort
+    ingedrukt, niet alleen het scherm laten dimmen)? Dat is precies het
+    scenario dat nog niet fysiek bevestigd is — laat het weten zodat we
+    kunnen uitzoeken of het event op deze firmware anders heet, of
+    controleer zelf via een KUAL-terminal met
+    `lipc-wait-event -mt "com.lab126.powerd" "*"` welke events er echt
+    langskomen bij het slapen gaan.
   - Foutmeldingen van `wget` zelf (verkeerd IP/poort, TrueNAS-app staat
     niet aan) staan er ook gewoon tussen.
 - **Script ververst prima (`fetch.log` toont "dashboard ververst" en

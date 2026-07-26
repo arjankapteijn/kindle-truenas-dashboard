@@ -7,10 +7,10 @@
 # slapende Kindle wordt WiFi (en waarschijnlijk dit proces zelf) uitgezet om
 # batterij te sparen, waardoor een "sleep 300"-lus in de praktijk uren kan
 # overslaan (geverifieerd op dit toestel: gaten van 1,5-2,5 uur i.p.v. 5
-# minuten in fetch.log). We wachten daarom op het `goingToSleep`-IPC-event
-# (hetzelfde soort event dat de meeste Kindle-jailbreak-hacks gebruiken) en
-# ververen precies op het moment dat het toestel gaat slapen -- exact het
-# moment dat er toch al een screensaver getoond gaat worden.
+# minuten in fetch.log). We wachten daarom op het `goingToScreenSaver`-IPC-
+# event van com.lab126.powerd (bevestigd via community-voorbeelden, zie
+# README.md) en ververen precies op het moment dat het toestel gaat slapen
+# -- exact het moment dat er toch al een screensaver getoond gaat worden.
 #
 # VOOR GEBRUIK AAN TE PASSEN:
 #   1. DASHBOARD_URL  — IP/poort van de kindle-truenas-dashboard-app op je LAN.
@@ -51,9 +51,9 @@ fetch_once() {
 }
 
 if command -v lipc-wait-event >/dev/null 2>&1; then
-    echo "$(date): gestart, wacht op goingToSleep-events" >> "$LOG_PATH"
+    echo "$(date): gestart, wacht op goingToScreenSaver-events" >> "$LOG_PATH"
     while true; do
-        lipc-wait-event -s -m com.lab126.powerd goingToSleep
+        lipc-wait-event -m com.lab126.powerd goingToScreenSaver
         fetch_once
     done
 else
