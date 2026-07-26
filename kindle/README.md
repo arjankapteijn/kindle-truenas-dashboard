@@ -4,11 +4,9 @@ Dit is de tegenhanger van de `kindle-truenas-dashboard`-app op TrueNAS: een
 scriptlet die op de Kindle zelf draait, elke 5 minuten de laatste
 dashboard-PNG ophaalt en als screensaver toont.
 
-**Belangrijk voorbehoud:** dit is opgezet op basis van gedocumenteerde,
-gangbare community-patronen (MobileRead / linkss / fbink) en lokaal
-getest op de renderer-kant, maar **niet op het fysieke toestel** — er was in
-deze sessie geen toegang tot de Kindle zelf. Controleer de punten hieronder
-op je eigen Voyage voordat je het script laat draaien.
+**Status:** volledig geïnstalleerd en werkend geverifieerd op een jailbroken
+Kindle Voyage (2026-07-26) — inclusief linkss-installatie, KUAL-menu-integratie
+en het daadwerkelijk tonen van het dashboard als screensaver.
 
 ## Vereisten (al aanwezig volgens jouw opzet)
 
@@ -53,9 +51,21 @@ op je eigen Voyage voordat je het script laat draaien.
 3. Zorg dat het script uitvoerbaar is: `chmod +x fetch_and_display.sh`
    (via een KUAL-terminal, of via USB als je bestandsbeheer permissies
    behoudt).
-4. Open KUAL op de Kindle → de nieuwe menu-ingang "TrueNAS-dashboard" moet
-   verschijnen (uit `menu/config.xml`) → kies **"Start TrueNAS-dashboard
-   refresh-loop"**.
+4. Open KUAL op de Kindle → in het **hoofdmenu** (niet in een submenu) moet nu
+   een nieuwe ingang **"TrueNAS-dashboard"** staan (uit `config.xml` +
+   `menu.json`, die direct in `kindle-dashboard/` moeten staan — KUAL
+   negeert deze extensie stilzwijgend als `config.xml` in een submap staat)
+   → open die en kies **"Start TrueNAS-dashboard refresh-loop"**.
+5. **Eenmalig na deze allereerste start:** wacht tot `fetch.log` een geslaagde
+   ronde toont, en herstart daarna het linkss-framework via **KUAL → Screen
+   Savers → Restart framework now**. Linkss neemt wijzigingen in de
+   inhoud van `screensavers/` (zoals de placeholder die je net verwijderd
+   hebt en het nieuwe `dashboard.png`) pas mee na zo'n herstart — zonder
+   deze stap blijft gewoon de standaard-Kindle-screensaver zichtbaar, ook al
+   ververst het script prima op de achtergrond. Zet de Kindle daarna in
+   slaap om te controleren of het dashboard verschijnt. Dit hoef je **niet**
+   te herhalen bij elke 5-minuten-ververing — het script overschrijft steeds
+   dezelfde bestandsnaam, dus de bestandenlijst zelf verandert niet meer.
 
 Het script blijft op de achtergrond draaien (`while true; do ... sleep 300;
 done`) en ververst elke 5 minuten. Je hebt zelf gekozen voor **handmatig
@@ -73,12 +83,28 @@ beëindigen.
 
 ## Problemen oplossen
 
+- **Menu-ingang "TrueNAS-dashboard" verschijnt niet in KUAL**: KUAL leest
+  `config.xml` alleen als die direct in `/mnt/us/extensions/kindle-dashboard/`
+  staat (niet in een submap) en de `<id>` daarin moet exact gelijk zijn aan
+  de mapnaam (`kindle-dashboard`). Herstart KUAL (of het toestel) na het
+  kopiëren — nieuwe extensies worden niet altijd meteen opgepikt.
 - **Scherm ververst niet**: check `/mnt/us/extensions/kindle-dashboard/fetch.log`
   voor foutmeldingen van `wget` (bv. verkeerd IP/poort, of de TrueNAS-app
   staat niet aan).
-- **Afbeelding verschijnt niet als screensaver**: het `SCREENSAVER_PATH` komt
-  waarschijnlijk niet overeen met wat linkss verwacht — dit is de stap die
-  het meest jouw eigen linkss-configuratie nodig heeft.
+- **Script ververst prima (`fetch.log` toont "dashboard ververst" en
+  `dashboard.png` staat in `screensavers/`), maar het scherm toont nog
+  gewoon de standaard-Kindle-screensaver**: dit is vrijwel altijd het
+  gemiste "eenmalige herstart"-stapje hierboven — **KUAL → Screen Savers →
+  Restart framework now**, dan opnieuw in slaap zetten.
+- **Nog steeds geen dashboard na de framework-herstart**: heeft dit toestel
+  "Special Offers" (advertenties op het vergrendelscherm)? Linkss kan dat
+  niet overschrijven — dan zie je op het vergrendelscherm altijd een
+  advertentie in plaats van de custom screensaver. Controleer via
+  Instellingen → Mijn Account of "Special Offers" vermeld staat.
+- Controleer anders in **KUAL → Screen Savers → Screen Savers Behavior** of
+  "Image Cycle" is aangevinkt (niet "Cover" of "Last Screen" — dat gebruikt
+  respectievelijk de laatst geopende boekomslag of het laatste scherm i.p.v.
+  de map `screensavers/`).
 - **Ghosting/nabeelden op het e-inktscherm**: dit is normaal bij herhaalde
   partial refreshes. Het script gebruikt fbink's standaardinstellingen; als
   dit hindert, kun je in het script een periodieke volledige flash-refresh

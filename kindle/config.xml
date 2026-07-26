@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    KUAL leest dit bestand alleen als het direct in de extensiemap staat
+    (dus /mnt/us/extensions/kindle-dashboard/config.xml, NIET in een
+    submap) -- en de <id> hieronder moet exact overeenkomen met de naam
+    van die map. Schema/structuur hier gekopieerd van de al bevestigd
+    werkende MRInstaller-extensie op dit toestel (zelfde patroon als het
+    voorbeeld op https://blog.4dcu.be/diy/2020/09/27/PythonKindleDashboard_1.html).
+-->
+<extension>
+    <information>
+        <name>TrueNAS-dashboard</name>
+        <version>1.0</version>
+        <author>arjankapteijn</author>
+        <id>kindle-dashboard</id>
+    </information>
+    <menus>
+        <menu type="json" dynamic="true">menu.json</menu>
+    </menus>
+</extension>

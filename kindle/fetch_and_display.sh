@@ -1,7 +1,7 @@
 #!/bin/sh
 # Haalt periodiek de dashboard-PNG op van de kindle-truenas-dashboard-app en
 # zet 'm neer als Kindle-screensaver (via de linkss-hack, al via MRInstaller
-# geïnstalleerd). Start dit script via het KUAL-menu (zie menu/config.xml).
+# geïnstalleerd). Start dit script via het KUAL-menu (zie config.xml/menu.json).
 #
 # Dit script is een op zichzelf staande while-lus (geen crond nodig — die
 # ontbreekt standaard op deze jailbreak) en draait door tot je 'm stopt

@@ -1,0 +1,10 @@
+{
+    "items": [
+    {
+        "name": "Start TrueNAS-dashboard refresh-loop",
+        "action": "./fetch_and_display.sh",
+        "priority": -998,
+        "exitmenu": true
+    }
+    ]
+}
