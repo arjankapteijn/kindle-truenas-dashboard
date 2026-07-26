@@ -13,9 +13,13 @@ en het daadwerkelijk tonen van het dashboard als screensaver.
 - WinterBreak2-jailbreak + hotfix
 - KUAL + MRInstaller ("MR Installer" v1.6, NiLuJe), werkend
 - **linkss** ("K5 FW 5.x ScreenSavers Hack", v0.25.N) — zo niet:
-  1. Download het pakket van de
-     [Snapshots-thread](https://www.mobileread.com/forums/showthread.php?t=225030)
-     (of de [hoofdthread](https://www.mobileread.com/forums/showthread.php?t=195474)).
+  1. Het volledige installatiearchief staat al in deze repo:
+     [`vendor/kindle-linkss-0.25.N-r18981.tar.xz`](vendor/kindle-linkss-0.25.N-r18981.tar.xz)
+     (oorspronkelijk gedownload van de
+     [Snapshots-thread](https://www.mobileread.com/forums/showthread.php?t=225030),
+     zie de [hoofdthread](https://www.mobileread.com/forums/showthread.php?t=195474)
+     voor de volledige discussie/herkomst — bewaard zodat een verdwenen
+     forumlink dit niet blokkeert).
   2. Pak het uit en zet **`Update_linkss_0.25.N_install_pw2_and_up.bin`**
      (dit is de variant voor de Kindle Voyage — linkss groepeert 'm bij
      "PW2 en nieuwer": PW2/KT2/KV/PW3/KOA/KT3/KOA2/PW4/KT4/KOA3/PW5; **niet**
