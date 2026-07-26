@@ -400,34 +400,51 @@ def _scan_summary(scan: dict | None) -> str | None:
 
 def _draw_pools_section(draw: ImageDraw.ImageDraw, snapshot: Snapshot, y: int) -> int:
     y = _section_title(draw, MARGIN, y, "Storage pools", CONTENT_W)
-    f_name = load_font(23, bold=True)
-    f_body = load_font(19)
-    f_pct = load_font(26, bold=True)
-
-    donut_d = 108
-    donut_r = donut_d // 2
-    inner_r = donut_r - 20  # ringdikte 20px: dun genoeg voor een "donut", dik genoeg om af te lezen
-    gap_after_donut = 24
-    text_x = MARGIN + donut_d + gap_after_donut
-    text_w = CONTENT_W - donut_d - gap_after_donut
-    row_gap = 18
-    # Worst-case rijhoogte: het hoogste van (donut, tekstblok mét scanregel).
-    # Altijd de scanregel meerekenen (niet gemiddeld) -- anders kan de
-    # laatste pool die "past" alsnog voorbij CONTENT_BOTTOM tekenen zodra
-    # er wél een actieve scrub/resilver is.
-    text_block_h = 32 + 26 + 26
-    row_h = max(donut_d, text_block_h) + row_gap
+    f_name = load_font(20, bold=True)
+    f_body = load_font(16)
+    f_pct = load_font(24, bold=True)
 
     pools = list(snapshot.pools)
-    for shown, pool in enumerate(pools):
-        if y + row_h > CONTENT_BOTTOM:
-            remaining = len(pools) - shown
-            draw.text((MARGIN, y), f"+ {remaining} meer pool(s)", font=f_body, fill=MUTED)
-            y += 26
-            break
+    if not pools:
+        draw.text((MARGIN, y), "Geen pools gevonden", font=f_body, fill=MUTED)
+        return y + 26
+
+    # Donuts náást elkaar i.p.v. één per rij -- bij één donut per volle-breedte
+    # rij bleef er, zeker met weinig pools, veel ongebruikte ruimte rechts van
+    # de (smalle) tekst over. Kolomaantal past zich aan het aantal pools aan,
+    # met een bovengrens zodat kaarten niet te smal worden om af te lezen.
+    max_columns = 4
+    columns = min(len(pools), max_columns)
+    card_w = CONTENT_W // columns
+
+    donut_d = 100
+    donut_r = donut_d // 2
+    inner_r = donut_r - 18  # ringdikte 18px: dun genoeg voor een "donut", dik genoeg om af te lezen
+    top_gap = 10
+    name_h = 26
+    status_h = 22
+    used_h = 22
+    scan_h = 22
+    row_gap = 22
+    # Worst-case kaarthoogte: altijd de scanregel meerekenen (niet alleen als
+    # _scan_summary() voor déze pool iets teruggeeft) -- anders kan een latere
+    # rij die eerst "past" alsnog voorbij CONTENT_BOTTOM tekenen zodra een
+    # pool in die rij wél een actieve scrub/resilver blijkt te hebben.
+    card_h = donut_d + top_gap + name_h + status_h + used_h + scan_h
+    row_h = card_h + row_gap
+
+    rows_that_fit = _max_rows(y, row_h, overflow_h=26)
+    max_items = rows_that_fit * columns
+    shown = pools[:max_items] if len(pools) > max_items else pools
+
+    for i, pool in enumerate(shown):
+        col, row = i % columns, i // columns
+        card_x = MARGIN + col * card_w
+        card_y = y + row * row_h
+        cx = card_x + card_w // 2
 
         frac = (pool.allocated / pool.size) if pool.size and pool.allocated is not None else 0.0
-        cx, cy = MARGIN + donut_r, y + donut_r
+        cy = card_y + donut_r
         bbox = [cx - donut_r, cy - donut_r, cx + donut_r, cy + donut_r]
         draw.ellipse(bbox, fill=BAR_TRACK, outline=MUTED)
         if frac > 0:
@@ -438,25 +455,42 @@ def _draw_pools_section(draw: ImageDraw.ImageDraw, snapshot: Snapshot, y: int) -
         )
         pct_text = f"{frac * 100:.0f}%"
         pw = draw.textlength(pct_text, font=f_pct)
-        draw.text((cx - pw / 2, cy - 15), pct_text, font=f_pct, fill=INK)
+        draw.text((cx - pw / 2, cy - 14), pct_text, font=f_pct, fill=INK)
 
-        ty = y
+        ty = card_y + donut_d + top_gap
+        max_text_w = card_w - 16
+
         status = _status_label(pool.healthy, pool.warning)
-        draw.text((text_x, ty), pool.name, font=f_name, fill=INK)
-        status_text = f"[{status}] {pool.status}"
-        sw = draw.textlength(status_text, font=f_body)
-        draw.text((text_x + text_w - sw, ty + 3), status_text, font=f_body, fill=INK)
-        ty += 32
+        name_text = _truncate(draw, pool.name, f_name, max_text_w)
+        nw = draw.textlength(name_text, font=f_name)
+        draw.text((cx - nw / 2, ty), name_text, font=f_name, fill=INK)
+        ty += name_h
 
-        used_label = f"{_fmt_bytes(pool.allocated)} / {_fmt_bytes(pool.size)}"
-        draw.text((text_x, ty), used_label, font=f_body, fill=MUTED)
-        ty += 26
+        status_text = _truncate(draw, f"[{status}] {pool.status}", f_body, max_text_w)
+        sw = draw.textlength(status_text, font=f_body)
+        draw.text((cx - sw / 2, ty), status_text, font=f_body, fill=INK)
+        ty += status_h
+
+        used_label = _truncate(
+            draw, f"{_fmt_bytes(pool.allocated)} / {_fmt_bytes(pool.size)}", f_body, max_text_w
+        )
+        uw = draw.textlength(used_label, font=f_body)
+        draw.text((cx - uw / 2, ty), used_label, font=f_body, fill=MUTED)
+        ty += used_h
 
         scan_text = _scan_summary(pool.scan)
         if scan_text:
-            draw.text((text_x, ty), scan_text, font=f_body, fill=MUTED)
+            scan_text = _truncate(draw, scan_text, f_body, max_text_w)
+            scw = draw.textlength(scan_text, font=f_body)
+            draw.text((cx - scw / 2, ty), scan_text, font=f_body, fill=MUTED)
 
-        y += row_h
+    rows_used = (len(shown) + columns - 1) // columns if shown else 0
+    y += rows_used * row_h
+
+    hidden = len(pools) - len(shown)
+    if hidden > 0:
+        draw.text((MARGIN, y), f"+ {hidden} meer pool(s)", font=f_body, fill=MUTED)
+        y += 26
 
     return y + 4
 

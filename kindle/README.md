@@ -13,9 +13,24 @@ op je eigen Voyage voordat je het script laat draaien.
 ## Vereisten (al aanwezig volgens jouw opzet)
 
 - WinterBreak2-jailbreak + hotfix
-- KUAL + MRInstaller, werkend
-- **linkss** ("K5 FW 5.x ScreenSavers Hack") — zo niet: installeer via
-  MRInstaller (`Update_linkss_*_install_touch_pw.bin` in `/mnt/us/mrpackages/`)
+- KUAL + MRInstaller ("MR Installer" v1.6, NiLuJe), werkend
+- **linkss** ("K5 FW 5.x ScreenSavers Hack", v0.25.N) — zo niet:
+  1. Download het pakket van de
+     [Snapshots-thread](https://www.mobileread.com/forums/showthread.php?t=225030)
+     (of de [hoofdthread](https://www.mobileread.com/forums/showthread.php?t=195474)).
+  2. Pak het uit en zet **`Update_linkss_0.25.N_install_pw2_and_up.bin`**
+     (dit is de variant voor de Kindle Voyage — linkss groepeert 'm bij
+     "PW2 en nieuwer": PW2/KT2/KV/PW3/KOA/KT3/KOA2/PW4/KT4/KOA3/PW5; **niet**
+     de `_install_touch_pw.bin`-variant, die is voor de originele Touch/PW1)
+     in `/mnt/us/mrpackages/`.
+  3. Eject & unplug de Kindle, open dan op het toestel zelf **KUAL → Helper →
+     Install MR Packages** (dat is MRInstaller/MRPI).
+  4. Na de herstart: zet de Kindle in slaap en controleer of er een
+     bevestigings-screensaver verschijnt — dat betekent dat de installatie
+     is gelukt.
+  5. Verwijder de meegeleverde placeholder-afbeelding(en)
+     (`00_you_can_delete_me*.png`) uit `/mnt/us/linkss/screensavers/` zodat
+     straks alleen `dashboard.png` in die map staat (zie hieronder waarom).
 - **fbink** — wordt door de meeste NiLuJe-pakketten al meegeleverd; check met
   `which fbink` in een KUAL-terminal. Zo niet, dan werkt het script ook
   zonder (het slaat de fbink-stap dan gewoon over en je ziet de nieuwe
@@ -31,9 +46,10 @@ op je eigen Voyage voordat je het script laat draaien.
      LAN-IP van je TrueNAS-server op poort 8000. **Gebruik platte HTTP**,
      geen HTTPS — de ingebouwde busybox-`wget` op deze firmware kan geen
      moderne TLS afhandelen.
-   - `SCREENSAVER_PATH` — controleer in linkss' eigen instellingenmenu
-     (KUAL > linkss) welk bestand/pad de actieve "custom screensaver" is;
-     pas dit aan als het afwijkt van het voorbeeld in het script.
+   - `SCREENSAVER_PATH` — staat standaard op
+     `/mnt/us/linkss/screensavers/dashboard.png`. Zolang dit het enige
+     bestand in die map is (zie de placeholder-opruimstap hierboven), toont
+     linkss altijd deze afbeelding.
 3. Zorg dat het script uitvoerbaar is: `chmod +x fetch_and_display.sh`
    (via een KUAL-terminal, of via USB als je bestandsbeheer permissies
    behoudt).

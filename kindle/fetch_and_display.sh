@@ -10,13 +10,16 @@
 #
 # VOOR GEBRUIK AAN TE PASSEN:
 #   1. DASHBOARD_URL  — IP/poort van de kindle-truenas-dashboard-app op je LAN.
-#   2. SCREENSAVER_PATH — pad waar linkss z'n custom screensaver-image
-#      verwacht. Dit verschilt per linkss-versie/instelling; controleer dit
-#      op je eigen toestel (KUAL > linkss > instellingen) — dit script kon
-#      niet op het fysieke toestel geverifieerd worden.
+#   2. SCREENSAVER_PATH — standaard `linkss/screensavers/`-map (aangemaakt
+#      door de linkss-hack zelf). Zorg dat dit bestand daar het ENIGE PNG-
+#      bestand is (verwijder de meegeleverde `00_you_can_delete_me*.png`-
+#      placeholder(s)), anders wisselt linkss af tussen beide afbeeldingen.
 
 DASHBOARD_URL="http://truenas.arjankapteijn.nl:8000/dashboard.png"
-SCREENSAVER_PATH="/mnt/us/linkss/screensavers/bg_medium_ss00.png"
+# linkss toont alles in deze map (willekeurig/op volgorde als er meerdere
+# bestanden in staan) -- verwijder de meegeleverde placeholder-afbeelding(en)
+# zodat dit bestand het enige is en dus altijd getoond wordt.
+SCREENSAVER_PATH="/mnt/us/linkss/screensavers/dashboard.png"
 POLL_INTERVAL_SECONDS=300
 
 WORKDIR="/mnt/us/extensions/kindle-dashboard"
