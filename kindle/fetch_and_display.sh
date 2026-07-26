@@ -15,7 +15,7 @@
 #      op je eigen toestel (KUAL > linkss > instellingen) — dit script kon
 #      niet op het fysieke toestel geverifieerd worden.
 
-DASHBOARD_URL="http://192.168.1.10:8000/dashboard.png"
+DASHBOARD_URL="http://truenas.arjankapteijn.nl:8000/dashboard.png"
 SCREENSAVER_PATH="/mnt/us/linkss/screensavers/bg_medium_ss00.png"
 POLL_INTERVAL_SECONDS=300
 

@@ -1,8 +1,8 @@
 # kindle-truenas-dashboard
 
 Een statusdashboard van een TrueNAS SCALE-server (CPU, geheugen/ZFS ARC,
-disks, pool-status/scrub, netwerk, apps, actieve meldingen), gerenderd als
-PNG en getoond op een jailbroken Kindle Voyage als vervangende screensaver.
+pool-status/scrub, netwerk, apps, actieve meldingen), gerenderd als PNG en
+getoond op een jailbroken Kindle Voyage als vervangende screensaver.
 
 [![CI](https://github.com/arjankapteijn/kindle-truenas-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/arjankapteijn/kindle-truenas-dashboard/actions/workflows/ci.yml)
 [![Publish Docker image](https://github.com/arjankapteijn/kindle-truenas-dashboard/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/arjankapteijn/kindle-truenas-dashboard/actions/workflows/docker-publish.yml)
@@ -18,7 +18,7 @@ PNG en getoond op een jailbroken Kindle Voyage als vervangende screensaver.
 
 ## Voorbeeld
 
-![Dashboard op de Kindle Voyage: CPU, geheugen/ARC, storage pools, disks, netwerk en apps in grijswaarden](docs/screenshot.png)
+![Dashboard op de Kindle Voyage: CPU, geheugen/ARC, storage pools, netwerk en apps in grijswaarden](docs/screenshot.png)
 
 <sub>Voorbeeldweergave (1072×1448, grijswaarden — zoals op het echte
 e-inktscherm), gerenderd met verzonnen data via <code>scripts/render_preview.py</code>.</sub>
@@ -44,14 +44,17 @@ vast HTTP-endpoint; de Kindle haalt 'm zelf op wanneer het uitkomt.
 
 CPU (gebruik totaal + per core, temperatuur, load average, uur-sparkline),
 geheugen- en ZFS ARC-gebruik, storage pools (status, scrub/resilver,
-gebruikte/vrije ruimte), disks (temperatuur, grootte, pool), netwerk
-(doorvoer per interface), apps (draaiend/gestopt) en actieve TrueNAS-alerts
-(SMART- en pool-waarschuwingen komen hier binnen, niet als los
-"SMART-status"-veld). Secties met een variabele hoeveelheid content (disks,
-apps, netwerk, pools) zijn begrensd op de beschikbare ruimte op het
-1072×1448-scherm: bij te veel content wordt "+N meer" getoond, of wordt een
-hele sectie overgeslagen (met een vermelding in de voettekst) in plaats van
-tekst te laten overlappen.
+gebruikte/vrije ruimte als donut-diagram), netwerk (doorvoer + uur-sparkline
+per interface — poorten zonder verkeer worden overgeslagen), apps
+(draaiend/gestopt) en actieve TrueNAS-alerts (SMART- en pool-waarschuwingen
+komen hier binnen, niet als los "SMART-status"-veld). Losse disk-informatie
+(model/temperatuur/grootte) wordt niet getoond: op de geteste hardware
+levert TrueNAS daar sowieso geen temperatuur voor (ook niet in de TrueNAS-UI
+zelf), en de ruimte is beter besteed aan de secties hierboven. Secties met
+een variabele hoeveelheid content (apps, netwerk, pools) zijn begrensd op de
+beschikbare ruimte op het 1072×1448-scherm: bij te veel content wordt "+N
+meer" getoond, of wordt een hele sectie overgeslagen (met een vermelding in
+de voettekst) in plaats van tekst te laten overlappen.
 
 ---
 
@@ -225,8 +228,8 @@ vanzelfsprekend uit de officiële docs bleken (geverifieerd tegen een live
 
 `/dashboard.png` en `/healthz` hebben **geen authenticatie** — iedereen die
 poort 8000 op je netwerk kan bereiken ziet hostnaam, TrueNAS-versie,
-disk-modellen/temperaturen, pool-namen, app-lijst en alert-tekst. Prima voor
-een afgeschermd thuisnetwerk; **forward deze poort niet naar het internet**.
+pool-namen, app-lijst en alert-tekst. Prima voor een afgeschermd
+thuisnetwerk; **forward deze poort niet naar het internet**.
 De verbinding met TrueNAS (`wss://172.16.0.1:8443/...`, TrueNAS' eigen
 HTTPS-poort binnen het interne docker-appnetwerk) is TLS-versleuteld —
 zie de kanttekening hierboven over waarom dat verplicht is (anders trekt

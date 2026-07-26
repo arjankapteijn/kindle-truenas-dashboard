@@ -52,11 +52,6 @@ _FONT_CANDIDATES = {
         "/Library/Fonts/Arial Bold.ttf",
     ],
 }
-_MONO_CANDIDATES = [
-    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-    "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
-    "/System/Library/Fonts/Supplemental/Andale Mono.ttf",
-]
 
 
 @cache
@@ -65,14 +60,6 @@ def load_font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
     # meerdere keren op, en elke miss zou anders opnieuw het kandidatenpad
     # scannen (os.path.isfile) en het TTF-bestand herparsen.
     for path in _FONT_CANDIDATES[bold]:
-        if os.path.isfile(path):
-            return ImageFont.truetype(path, size)
-    return ImageFont.load_default()
-
-
-@cache
-def load_mono_font(size: int) -> ImageFont.ImageFont:
-    for path in _MONO_CANDIDATES:
         if os.path.isfile(path):
             return ImageFont.truetype(path, size)
     return ImageFont.load_default()
@@ -151,12 +138,68 @@ def _sparkline(
     draw.line(points, fill=fill, width=2)
 
 
+def _sparkline_multi(
+    draw: ImageDraw.ImageDraw,
+    x: int,
+    y: int,
+    w: int,
+    h: int,
+    series: list[tuple[list[float], int]],
+) -> None:
+    """Meerdere lijnen in één grafiek, geschaald op een gedeeld maximum (bv.
+    inkomend + uitgaand netwerkverkeer, die anders elk hun eigen schaal
+    zouden krijgen en dus niet onderling vergelijkbaar zouden zijn)."""
+    draw.rectangle([x, y, x + w, y + h], outline=LINE)
+    all_values = [v for values, _fill in series for v in values]
+    if not all_values:
+        return
+    vmax = max(all_values) or 1.0
+    for values, fill in series:
+        if len(values) < 2:
+            continue
+        n = len(values)
+        points = [
+            (x + round(i / (n - 1) * w), y + h - round(min(v, vmax) / vmax * h))
+            for i, v in enumerate(values)
+        ]
+        draw.line(points, fill=fill, width=2)
+
+
+def _has_traffic(graph) -> bool:
+    """Een fysieke poort die nergens op aangesloten is levert de hele
+    opgevraagde periode 0 op -- die hoeft niet in de weergave (voegt niets
+    toe, kost alleen ruimte). Bij een onbekend legend-formaat liever tonen
+    dan onterecht verbergen."""
+    if graph is None or not graph.points:
+        return False
+    if "received" not in graph.legend or "sent" not in graph.legend:
+        return True
+    rx_idx = graph.legend.index("received")
+    tx_idx = graph.legend.index("sent")
+    return any(p[rx_idx] or p[tx_idx] for p in graph.points)
+
+
 def _section_title(draw: ImageDraw.ImageDraw, x: int, y: int, title: str, width: int) -> int:
     f = load_font(26, bold=True)
     draw.text((x, y), title, font=f, fill=INK)
     y += 34
     draw.line([(x, y), (x + width, y)], fill=LINE, width=2)
     return y + 10
+
+
+def _last_nonzero_value(graph, field: str) -> float | None:
+    """Sommige netdata-sensoren (bv. CPU-temperatuur via lm-sensors) pollen
+    minder vaak dan 1x/seconde. Het allerlaatste punt in de per-seconde
+    reeks kan dan nog niet bijgewerkt zijn en toont 0 i.p.v. de echte
+    laatste meting. Scan daarom terug tot de laatste van-nul-verschillende
+    waarde, i.p.v. blind `latest_value()` te gebruiken."""
+    if graph is None or field not in graph.legend:
+        return None
+    idx = graph.legend.index(field)
+    for point in reversed(graph.points):
+        if point[idx]:
+            return point[idx]
+    return None
 
 
 def _status_label(healthy: bool, warning: bool) -> str:
@@ -167,10 +210,17 @@ def _status_label(healthy: bool, warning: bool) -> str:
     return "OK"
 
 
-def _max_rows(y: int, row_h: int, bottom: int = CONTENT_BOTTOM) -> int:
+def _max_rows(
+    y: int, row_h: int, bottom: int = CONTENT_BOTTOM, *, overflow_h: int | None = None
+) -> int:
     """Hoeveel rijen van `row_h` passen er nog tussen `y` en de onderkant,
-    met ruimte voor een eventuele "+N meer"-regel erna."""
-    return max(0, (bottom - row_h - y) // row_h)
+    met ruimte voor een eventuele "+N meer"-regel erna. Die regel is meestal
+    exact `row_h` hoog (compacte lijsten als Disks/Apps), maar bij rijen die
+    zelf veel hoger zijn dan een enkele tekstregel (bv. Netwerk met sparklines)
+    zou dat onterecht een hele extra rij reserveren -- geef dan `overflow_h`
+    expliciet mee."""
+    reserve = row_h if overflow_h is None else overflow_h
+    return max(0, (bottom - reserve - y) // row_h)
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +285,7 @@ def _draw_cpu_section(draw: ImageDraw.ImageDraw, snapshot: Snapshot, y: int) -> 
     cpu_graph = snapshot.graphs.get("cpu")
     temp_graph = snapshot.graphs.get("cputemp")
     total_pct = cpu_graph.latest_value("cpu") if cpu_graph else None
-    total_temp = temp_graph.latest_value("cpu") if temp_graph else None
+    total_temp = _last_nonzero_value(temp_graph, "cpu")
 
     f_big = load_font(44, bold=True)
     f_label = load_font(19)
@@ -352,83 +402,63 @@ def _draw_pools_section(draw: ImageDraw.ImageDraw, snapshot: Snapshot, y: int) -
     y = _section_title(draw, MARGIN, y, "Storage pools", CONTENT_W)
     f_name = load_font(23, bold=True)
     f_body = load_font(19)
-    f_used_label = load_font(16)
-    bar_w = CONTENT_W
-    bar_h = 26
-    # Worst-case budget per pool: naamregel (32) + gebruikslabel (22) + balk
-    # (bar_h+8) + optionele scanregel (26, alleen als _scan_summary() iets
-    # teruggeeft) + marge (12). Moet het ERGSTE geval dekken (mét scanregel),
-    # anders kan de laatste pool die "past" alsnog voorbij CONTENT_BOTTOM
-    # tekenen zodra er wél een actieve scrub/resilver is — vandaar geen
-    # gemiddelde, maar de volledige som.
-    block_h = 32 + 22 + (bar_h + 8) + 26 + 12
+    f_pct = load_font(26, bold=True)
+
+    donut_d = 108
+    donut_r = donut_d // 2
+    inner_r = donut_r - 20  # ringdikte 20px: dun genoeg voor een "donut", dik genoeg om af te lezen
+    gap_after_donut = 24
+    text_x = MARGIN + donut_d + gap_after_donut
+    text_w = CONTENT_W - donut_d - gap_after_donut
+    row_gap = 18
+    # Worst-case rijhoogte: het hoogste van (donut, tekstblok mét scanregel).
+    # Altijd de scanregel meerekenen (niet gemiddeld) -- anders kan de
+    # laatste pool die "past" alsnog voorbij CONTENT_BOTTOM tekenen zodra
+    # er wél een actieve scrub/resilver is.
+    text_block_h = 32 + 26 + 26
+    row_h = max(donut_d, text_block_h) + row_gap
 
     pools = list(snapshot.pools)
     for shown, pool in enumerate(pools):
-        if y + block_h > CONTENT_BOTTOM:
+        if y + row_h > CONTENT_BOTTOM:
             remaining = len(pools) - shown
             draw.text((MARGIN, y), f"+ {remaining} meer pool(s)", font=f_body, fill=MUTED)
             y += 26
             break
 
+        frac = (pool.allocated / pool.size) if pool.size and pool.allocated is not None else 0.0
+        cx, cy = MARGIN + donut_r, y + donut_r
+        bbox = [cx - donut_r, cy - donut_r, cx + donut_r, cy + donut_r]
+        draw.ellipse(bbox, fill=BAR_TRACK, outline=MUTED)
+        if frac > 0:
+            # Start op 12 uur (-90 t.o.v. PIL's 3-uur-nulpunt), met de klok mee.
+            draw.pieslice(bbox, -90, -90 + frac * 360, fill=BAR_FILL)
+        draw.ellipse(
+            [cx - inner_r, cy - inner_r, cx + inner_r, cy + inner_r], fill=BG, outline=MUTED
+        )
+        pct_text = f"{frac * 100:.0f}%"
+        pw = draw.textlength(pct_text, font=f_pct)
+        draw.text((cx - pw / 2, cy - 15), pct_text, font=f_pct, fill=INK)
+
+        ty = y
         status = _status_label(pool.healthy, pool.warning)
-        draw.text((MARGIN, y), pool.name, font=f_name, fill=INK)
+        draw.text((text_x, ty), pool.name, font=f_name, fill=INK)
         status_text = f"[{status}] {pool.status}"
         sw = draw.textlength(status_text, font=f_body)
-        draw.text((MARGIN + CONTENT_W - sw, y + 3), status_text, font=f_body, fill=INK)
-        y += 32
+        draw.text((text_x + text_w - sw, ty + 3), status_text, font=f_body, fill=INK)
+        ty += 32
 
-        # Label BOVEN de balk (niet erover heen) — anders valt donkere tekst
-        # samen met de donkere vulling van de balk weg (slechte leesbaarheid).
         used_label = f"{_fmt_bytes(pool.allocated)} / {_fmt_bytes(pool.size)}"
-        lw = draw.textlength(used_label, font=f_used_label)
-        draw.text((MARGIN + CONTENT_W - lw, y), used_label, font=f_used_label, fill=MUTED)
-        y += 22
-
-        frac = (pool.allocated / pool.size) if pool.size and pool.allocated is not None else 0.0
-        _bar(draw, MARGIN, y, bar_w, bar_h, frac)
-        y += bar_h + 8
+        draw.text((text_x, ty), used_label, font=f_body, fill=MUTED)
+        ty += 26
 
         scan_text = _scan_summary(pool.scan)
         if scan_text:
-            draw.text((MARGIN, y), scan_text, font=f_body, fill=MUTED)
-            y += 26
-        y += 12
+            draw.text((text_x, ty), scan_text, font=f_body, fill=MUTED)
 
-    return y + 4
-
-
-# ---------------------------------------------------------------------------
-# Disks
-# ---------------------------------------------------------------------------
-def _draw_disks_section(draw: ImageDraw.ImageDraw, snapshot: Snapshot, y: int) -> int:
-    y = _section_title(draw, MARGIN, y, "Disks", CONTENT_W)
-    f_head = load_font(16, bold=True)
-    f_mono = load_mono_font(18)
-
-    draw.text((MARGIN, y), "naam   temp     grootte   pool", font=f_head, fill=MUTED)
-    y += 22
-
-    row_h = 26
-    col_w = CONTENT_W // 2
-    disks = list(snapshot.disks)
-    max_rows = _max_rows(y, row_h)
-    max_items = max_rows * 2
-    shown = disks[:max_items] if len(disks) > max_items else disks
-    for i, disk in enumerate(shown):
-        temp_str = f"{disk.temperature}C" if disk.temperature is not None else "-"
-        line = f"{disk.name:<6} {temp_str:>4}  {_fmt_bytes(disk.size):>9}  {disk.pool or '-'}"
-        col, row = i % 2, i // 2
-        draw.text((MARGIN + col * col_w, y + row * row_h), line, font=f_mono, fill=INK)
-    rows = (len(shown) + 1) // 2
-    y += rows * row_h
-
-    hidden = len(disks) - len(shown)
-    if hidden > 0:
-        draw.text((MARGIN, y), f"+ {hidden} meer schijven", font=load_font(18), fill=MUTED)
         y += row_h
 
-    return y + 14
+    return y + 4
 
 
 # ---------------------------------------------------------------------------
@@ -438,10 +468,28 @@ def _draw_network_section(draw: ImageDraw.ImageDraw, snapshot: Snapshot, y: int)
     y = _section_title(draw, MARGIN, y, "Netwerk", CONTENT_W)
     f_body = load_font(19)
     f_name = load_font(21, bold=True)
+    f_tiny = load_font(14)
 
-    row_h = 30
-    ifaces = [n for n in snapshot.interface_names if snapshot.graphs.get(f"interface:{n}")]
-    max_rows = _max_rows(y, row_h)
+    # Interfaces zonder enig verkeer in het opgevraagde uur (bv. een
+    # ongebruikte fysieke poort) voegen niets toe aan de weergave.
+    ifaces = [
+        n for n in snapshot.interface_names if _has_traffic(snapshot.graphs.get(f"interface:{n}"))
+    ]
+    if not ifaces:
+        draw.text((MARGIN, y), "Geen actieve interfaces", font=f_body, fill=MUTED)
+        return y + 26
+
+    spark_h = 40
+    gap = 14
+    row_h = 30 + spark_h + gap
+
+    draw.text((MARGIN, y), "in (donker) / uit (grijs), laatste uur", font=f_tiny, fill=MUTED)
+    y += 18
+
+    # De "+N meer interfaces"-regel is maar 26px hoog, niet een volle rij
+    # (die inclusief sparkline ~84px is) -- anders wordt er onterecht een
+    # hele extra rij gereserveerd en verdwijnen interfaces die prima passen.
+    max_rows = _max_rows(y, row_h, overflow_h=26)
     shown = ifaces[:max_rows] if len(ifaces) > max_rows else ifaces
     for name in shown:
         graph = snapshot.graphs[f"interface:{name}"]
@@ -454,12 +502,24 @@ def _draw_network_section(draw: ImageDraw.ImageDraw, snapshot: Snapshot, y: int)
             font=f_body,
             fill=MUTED,
         )
-        y += row_h
+        y += 30
+
+        if "received" in graph.legend and "sent" in graph.legend and graph.points:
+            rx_idx = graph.legend.index("received")
+            tx_idx = graph.legend.index("sent")
+            rx_values = [p[rx_idx] for p in graph.points]
+            tx_values = [p[tx_idx] for p in graph.points]
+            _sparkline_multi(
+                draw, MARGIN, y, CONTENT_W, spark_h, [(rx_values, INK), (tx_values, MUTED)]
+            )
+        else:
+            draw.rectangle([MARGIN, y, MARGIN + CONTENT_W, y + spark_h], outline=LINE)
+        y += spark_h + gap
 
     hidden = len(ifaces) - len(shown)
     if hidden > 0:
         draw.text((MARGIN, y), f"+ {hidden} meer interfaces", font=f_body, fill=MUTED)
-        y += row_h
+        y += 26
 
     return y + 14
 
@@ -524,7 +584,6 @@ def create_image(
     y = _draw_cpu_section(draw, snapshot, y)
     y = _draw_memory_section(draw, snapshot, y)
     y = _draw_pools_section(draw, snapshot, y)
-    y = _draw_disks_section(draw, snapshot, y)
 
     # Laagste prioriteit: alleen tekenen als er nog echt ruimte over is, i.p.v.
     # overlappende tekst tegen de voettekst aan te drukken bij veel content.

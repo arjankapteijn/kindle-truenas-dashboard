@@ -44,13 +44,18 @@ def build_fixture_snapshot() -> Snapshot:
         200,
         lambda i: 40 + (i % 10),
         lambda i: 42 + (i % 8),
-        lambda _i: 44,
+        # Laatste punt bewust 0: netdata's allerlaatste per-seconde sample kan
+        # nog niet bijgewerkt zijn voor traag pollende sensoren (zie
+        # _last_nonzero_value in render.py) -- dit fixture-punt bewijst dat de
+        # renderer daar niet in trapt.
+        lambda i: 0 if i == 199 else 44,
     )
     memory = _series(("time", "available"), 200, lambda i: 2_100_000_000 - i * 1000)
     arcsize = _series(("time", "size"), 200, lambda i: 7_500_000_000 + i * 1000)
     iface = _series(
         ("time", "received", "sent"), 200, lambda i: 490 + (i % 300), lambda i: 116 + (i % 900)
     )
+    iface_unused = _series(("time", "received", "sent"), 200, lambda _i: 0, lambda _i: 0)
 
     return Snapshot(
         hostname="truenas",
@@ -114,8 +119,11 @@ def build_fixture_snapshot() -> Snapshot:
             "arcsize": arcsize,
             "interface:enp2s0f0": iface,
             "interface:enp2s0f1": iface,
+            # Ongebruikte poort (geen kabel aangesloten) -- hoort niet in de
+            # weergave te verschijnen, zie _has_traffic() in render.py.
+            "interface:enp3s0": iface_unused,
         },
-        interface_names=("enp2s0f0", "enp2s0f1"),
+        interface_names=("enp2s0f0", "enp2s0f1", "enp3s0"),
     )
 
 
