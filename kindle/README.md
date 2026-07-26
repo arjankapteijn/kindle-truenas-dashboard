@@ -1,12 +1,18 @@
 # Kindle-kant: dashboard ophalen en tonen
 
 Dit is de tegenhanger van de `kindle-truenas-dashboard`-app op TrueNAS: een
-scriptlet die op de Kindle zelf draait, elke 5 minuten de laatste
-dashboard-PNG ophaalt en als screensaver toont.
+scriptlet die op de Kindle zelf draait, de laatste dashboard-PNG ophaalt en
+als screensaver toont — geverst vlak vóór elke keer dat het toestel gaat
+slapen (zie "Hoe de verversing werkt" hieronder).
 
-**Status:** volledig geïnstalleerd en werkend geverifieerd op een jailbroken
-Kindle Voyage (2026-07-26) — inclusief linkss-installatie, KUAL-menu-integratie
-en het daadwerkelijk tonen van het dashboard als screensaver.
+**Status:** linkss-installatie en KUAL-menu-integratie zijn volledig
+geverifieerd op een jailbroken Kindle Voyage (2026-07-26). Het ophalen zelf
+werkte in eerste opzet ook (vaste 5-minuten-polling), maar bleek uren stil
+te vallen zodra het toestel echt sliep (WiFi gaat dan uit) — zie
+"Problemen oplossen" voor hoe we dat ontdekten. `fetch_and_display.sh` is
+daarna omgebouwd naar het event-gedreven ontwerp hieronder; **dat exacte
+ontwerp is nog niet opnieuw op het fysieke toestel getest**, dus controleer
+na installatie of het écht ververst vlak vóór het slapen gaan.
 
 ## Vereisten (al aanwezig volgens jouw opzet)
 
@@ -71,11 +77,31 @@ en het daadwerkelijk tonen van het dashboard als screensaver.
    te herhalen bij elke 5-minuten-ververing — het script overschrijft steeds
    dezelfde bestandsnaam, dus de bestandenlijst zelf verandert niet meer.
 
-Het script blijft op de achtergrond draaien (`while true; do ... sleep 300;
-done`) en ververst elke 5 minuten. Je hebt zelf gekozen voor **handmatig
-starten via KUAL** i.p.v. automatisch bij boot — dat betekent: na een
-herstart of USB-verbinding moet je de loop opnieuw starten via hetzelfde
-KUAL-menu.
+## Hoe de verversing werkt
+
+Het script blijft op de achtergrond draaien, maar polt niet blind op een
+vaste interval. In plaats daarvan wacht het met `lipc-wait-event` op het
+`goingToSleep`-IPC-event (hetzelfde soort event dat vrijwel elke
+Kindle-jailbreak-hack gebruikt om iets te doen vlak voor het toestel
+slaapt) en haalt dan **meteen** de laatste dashboard-PNG op — precies het
+moment dat er toch al een screensaver getoond gaat worden, dus de data is
+altijd zo vers als je 'm ziet.
+
+Waarom niet gewoon elke 5 minuten pollen? Dat was de oorspronkelijke opzet,
+maar op dit toestel bleek `fetch.log` gaten van 1,5 tot 2,5 uur te tonen
+in plaats van 5 minuten: een Kindle die écht slaapt, zet WiFi (en
+waarschijnlijk het achtergrondproces zelf) uit om batterij te sparen,
+waardoor de lus alleen draait als het toestel toevallig om een andere
+reden wakker is. Event-gedreven ophalen lost dat op zonder dat we iets aan
+het systeem zelf hoeven te wijzigen.
+
+Als `lipc-wait-event` onverwacht ontbreekt op jouw firmware, valt het
+script automatisch terug op de oude vaste-interval-polling (elke 5
+minuten) — check `fetch.log` om te zien welke modus actief is.
+
+Je hebt zelf gekozen voor **handmatig starten via KUAL** i.p.v. automatisch
+bij boot — dat betekent: na een herstart of USB-verbinding moet je de loop
+opnieuw starten via hetzelfde KUAL-menu.
 
 ## Stoppen
 
@@ -92,9 +118,20 @@ beëindigen.
   staat (niet in een submap) en de `<id>` daarin moet exact gelijk zijn aan
   de mapnaam (`kindle-dashboard`). Herstart KUAL (of het toestel) na het
   kopiëren — nieuwe extensies worden niet altijd meteen opgepikt.
-- **Scherm ververst niet**: check `/mnt/us/extensions/kindle-dashboard/fetch.log`
-  voor foutmeldingen van `wget` (bv. verkeerd IP/poort, of de TrueNAS-app
-  staat niet aan).
+- **Scherm ververst niet, of ververst maar met grote tussenpozen (uren
+  i.p.v. bij elke sleep)**: check `/mnt/us/extensions/kindle-dashboard/fetch.log`.
+  - Staat er "lipc-wait-event niet gevonden, terugval op vaste interval"?
+    Dan draait het script in de oude polling-modus, die op dit toestel
+    aantoonbaar urenlang stilviel zodra het écht sliep (WiFi gaat dan uit).
+    Dat is de kernreden voor het event-gedreven ontwerp — als
+    `lipc-wait-event` op jouw firmware ontbreekt, is verder uitzoeken nodig
+    waarom (mogelijk een andere padnaam of firmwareversie).
+  - Staat er wel "wacht op goingToSleep-events" maar komen er geen nieuwe
+    regels bij na een sleep-cyclus? Dan vuurt het `goingToSleep`-event op
+    dit toestel mogelijk niet (of onder een andere naam) — dit is de stap
+    die nog niet op het fysieke toestel is bevestigd.
+  - Foutmeldingen van `wget` zelf (verkeerd IP/poort, TrueNAS-app staat
+    niet aan) staan er ook gewoon tussen.
 - **Script ververst prima (`fetch.log` toont "dashboard ververst" en
   `dashboard.png` staat in `screensavers/`), maar het scherm toont nog
   gewoon de standaard-Kindle-screensaver**: dit is vrijwel altijd het
