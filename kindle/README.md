@@ -5,15 +5,16 @@ scriptlet die op de Kindle zelf draait, de laatste dashboard-PNG ophaalt en
 als screensaver toont — geverst vlak vóór elke keer dat het toestel gaat
 slapen (zie "Hoe de verversing werkt" hieronder).
 
-**Status:** linkss-installatie en KUAL-menu-integratie zijn volledig
-geverifieerd op een jailbroken Kindle Voyage (2026-07-26). Het ophalen zelf
-werkte in eerste opzet ook (vaste 5-minuten-polling), maar bleek uren stil
-te vallen zodra het toestel echt sliep (WiFi gaat dan uit) — zie
-"Hoe de verversing werkt" hieronder. De eerste event-gedreven versie
-gebruikte het verkeerde IPC-event (`goingToSleep`, bestaat niet) en vuurde
-daardoor nooit; inmiddels gecorrigeerd naar het bevestigde
-`goingToScreenSaver`-event, maar **dat is nog niet opnieuw fysiek getest**
-— controleer na installatie of het écht ververst vlak vóór het slapen gaan.
+**Status:** volledig geverifieerd op een jailbroken Kindle Voyage
+(2026-07-27), inclusief het event-gedreven ophalen. Twee eerdere pogingen
+faalden onderweg (zie "Hoe de verversing werkt" voor de volledige
+geschiedenis): eerst een vaste 5-minuten-polling die urenlang stilviel
+zodra het toestel écht sliep, daarna een event-filter
+(`goingToScreenSaver` als los argument bij `lipc-wait-event`) dat om
+onduidelijke reden nooit vuurde. Een losse diagnose-log
+(`lipc-wait-event -mt "com.lab126.powerd" "*"`, zie `diagnose_events.sh`)
+bevestigde dat het event er wél is en zelf filteren op de regel wél werkt
+— dat is de uiteindelijke opzet hieronder.
 
 ## Vereisten (al aanwezig volgens jouw opzet)
 
@@ -81,18 +82,29 @@ daardoor nooit; inmiddels gecorrigeerd naar het bevestigde
 ## Hoe de verversing werkt
 
 Het script blijft op de achtergrond draaien, maar polt niet blind op een
-vaste interval. In plaats daarvan wacht het met
-`lipc-wait-event -m com.lab126.powerd goingToScreenSaver` op het moment dat
-het toestel een screensaver gaat tonen, en haalt dan **meteen** de laatste
-dashboard-PNG op — precies vlak voordat linkss de screensaver samenstelt,
-dus de data is zo vers als redelijkerwijs mogelijk.
+vaste interval. In plaats daarvan monitort het **alle**
+`com.lab126.powerd`-events via `lipc-wait-event -mt "com.lab126.powerd" "*"`
+en filtert zelf (met een `case`-statement) op de regels die
+`goingToScreenSaver` bevatten — op dát moment haalt het **meteen** de
+laatste dashboard-PNG op, precies vlak voordat linkss de screensaver
+samenstelt, dus de data is zo vers als redelijkerwijs mogelijk.
 
-(Eerdere versie van dit script gebruikte `goingToSleep` als event-naam —
-dat bestaat niet binnen `com.lab126.powerd` en vuurde dus nooit. Het
-bevestigde event heet `goingToScreenSaver`, zoals gedocumenteerd in
-[deze blogpost over Kindle-huisautomatisering](https://blog.davidv.dev/posts/integrating-a-kindle-into-house-automation/),
-waar live `lipc-wait-event -mt "com.lab126.powerd" "*"`-output
-`goingToScreenSaver`/`outOfScreenSaver` laat zien.)
+**Twee doodlopende paden onderweg, voor de volgende keer dat dit iets
+soortgelijks nodig heeft:**
+- `goingToSleep` als event-naam: bestaat niet binnen `com.lab126.powerd`,
+  vuurde dus nooit.
+- `lipc-wait-event -m com.lab126.powerd goingToScreenSaver` (event-naam als
+  los argument): de event-náám bleek wel te kloppen — bevestigd via
+  [deze blogpost over Kindle-huisautomatisering](https://blog.davidv.dev/posts/integrating-a-kindle-into-house-automation/)
+  én via onze eigen `diagnose_events.sh`-log op dit toestel — maar deze
+  manier van filteren gaf op dit toestel, ook na een hele nacht echte
+  sleep-cycli, geen enkele hit. Vermoedelijk ongeldige/andere syntax voor
+  het event-argument op deze firmware; niet verder uitgezocht omdat de
+  wildcard-vorm hieronder gewoon werkt.
+- **Wat wel werkt** (bevestigd via `diagnose_events.sh`, dat exact
+  `lipc-wait-event -mt "com.lab126.powerd" "*"` gebruikt en alle events
+  blijft loggen): alles monitoren en zelf op de tekst `goingToScreenSaver`
+  matchen, zoals het script nu doet.
 
 Waarom niet gewoon elke 5 minuten pollen? Dat was de oorspronkelijke opzet,
 maar op dit toestel bleek `fetch.log` gaten van 1,5 tot 2,5 uur te tonen
@@ -135,12 +147,11 @@ beëindigen.
     waarom (mogelijk een andere padnaam of firmwareversie).
   - Staat er wel "wacht op goingToScreenSaver-events" maar komen er geen
     nieuwe regels bij na een echte sleep-cyclus (aan/uit-knop kort
-    ingedrukt, niet alleen het scherm laten dimmen)? Dat is precies het
-    scenario dat nog niet fysiek bevestigd is — laat het weten zodat we
-    kunnen uitzoeken of het event op deze firmware anders heet, of
-    controleer zelf via een KUAL-terminal met
-    `lipc-wait-event -mt "com.lab126.powerd" "*"` welke events er echt
-    langskomen bij het slapen gaan.
+    ingedrukt, niet alleen het scherm laten dimmen)? Gebruik dan het
+    **tweede KUAL-menu-item "Diagnose: log alle powerd-events"**
+    (`diagnose_events.sh`) — geen terminal nodig. Dat logt élk
+    `com.lab126.powerd`-event naar `events.log`, dus je ziet zwart-op-wit
+    of en welke events er echt langskomen bij het slapen gaan.
   - Foutmeldingen van `wget` zelf (verkeerd IP/poort, TrueNAS-app staat
     niet aan) staan er ook gewoon tussen.
 - **Script ververst prima (`fetch.log` toont "dashboard ververst" en

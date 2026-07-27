@@ -52,9 +52,25 @@ fetch_once() {
 
 if command -v lipc-wait-event >/dev/null 2>&1; then
     echo "$(date): gestart, wacht op goingToScreenSaver-events" >> "$LOG_PATH"
+    # NB: filteren via een event-naam als los argument (bv.
+    # "lipc-wait-event -m com.lab126.powerd goingToScreenSaver") bleek op dit
+    # toestel nooit iets op te leveren, ook niet na een hele nacht echte
+    # sleep-cycli -- vermoedelijk ongeldige/onduidelijke syntax voor deze
+    # firmware. De wildcard-vorm ("*") is wel bevestigd te werken (elk
+    # com.lab126.powerd-event kwam meteen binnen), dus we monitoren alles en
+    # filteren zelf op de regel.
+    # Buitenste lus als vangnet: mocht lipc-wait-event ooit stoppen/crashen,
+    # dan herstart het monitoren zichzelf i.p.v. het script stil te laten
+    # doodlopen.
     while true; do
-        lipc-wait-event -m com.lab126.powerd goingToScreenSaver
-        fetch_once
+        lipc-wait-event -mt "com.lab126.powerd" "*" | while read -r event_line; do
+            case "$event_line" in
+                *goingToScreenSaver*)
+                    fetch_once
+                    ;;
+            esac
+        done
+        echo "$(date): lipc-wait-event gestopt, herstart monitoring" >> "$LOG_PATH"
     done
 else
     # lipc-wait-event hoort standaard op elke K5-firmware te staan; als het
