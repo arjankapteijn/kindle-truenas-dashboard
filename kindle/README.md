@@ -75,9 +75,21 @@ bevestigde dat het event er wél is en zelf filteren op de regel wél werkt
    hebt en het nieuwe `dashboard.png`) pas mee na zo'n herstart — zonder
    deze stap blijft gewoon de standaard-Kindle-screensaver zichtbaar, ook al
    ververst het script prima op de achtergrond. Zet de Kindle daarna in
-   slaap om te controleren of het dashboard verschijnt. Dit hoef je **niet**
-   te herhalen bij elke 5-minuten-ververing — het script overschrijft steeds
-   dezelfde bestandsnaam, dus de bestandenlijst zelf verandert niet meer.
+   slaap om te controleren of het dashboard verschijnt (**met de USB-kabel
+   los** — aan USB hangend doorloopt een Kindle de normale
+   slaap/screensaver-flow niet, je ziet dan hooguit het scherm dimmen).
+   Dit hoef je **niet** te herhalen bij elke ververing — het script
+   overschrijft steeds dezelfde bestandsnaam, dus de bestandenlijst zelf
+   verandert niet meer.
+
+   **Waarschuwing:** gebruik "Restart framework now" ná deze allereerste
+   keer **niet** meer als troubleshooting-stap. Linkss' `shuffless`
+   hernoemt/bevriest bij elke restart de op dat moment aanwezige
+   `dashboard.png` naar zijn eigen `bg_ssNN.png`-schema — je krijgt dan
+   twee bestanden in `screensavers/` (het bevroren oude en het door het
+   script ververste nieuwe), die linkss om-en-om blijft tonen. Zag je dit
+   toch gebeuren (een `bg_ss00.png` naast `dashboard.png`)? Verwijder
+   gewoon het `bg_ss*.png`-bestand, `dashboard.png` blijft dan het enige.
 
 ## Hoe de verversing werkt
 
@@ -156,10 +168,18 @@ beëindigen.
     niet aan) staan er ook gewoon tussen.
 - **Script ververst prima (`fetch.log` toont "dashboard ververst" en
   `dashboard.png` staat in `screensavers/`), maar het scherm toont nog
-  gewoon de standaard-Kindle-screensaver**: dit is vrijwel altijd het
-  gemiste "eenmalige herstart"-stapje hierboven — **KUAL → Screen Savers →
-  Restart framework now**, dan opnieuw in slaap zetten.
-- **Nog steeds geen dashboard na de framework-herstart**: heeft dit toestel
+  gewoon de standaard-Kindle-screensaver of alleen een oude stand**:
+  - Test je met de USB-kabel nog aangesloten? Ontkoppel 'm eerst — aan USB
+    hangend doorloopt een Kindle de normale slaap/screensaver-flow niet.
+  - Staat er een `bg_ss*.png` náást `dashboard.png` in `screensavers/`?
+    Dan is ooit "Restart framework now" gebruikt ná de allereerste
+    installatiestap, wat de toenmalige `dashboard.png` bevroor onder een
+    andere naam (zie de waarschuwing bij stap 5 hierboven). Verwijder dat
+    `bg_ss*.png`-bestand — niet opnieuw op "Restart framework now" drukken,
+    dat bevriest gewoon de volgende ronde weer.
+  - Heb je de allereerste installatiestap (stap 5) nog nooit gedaan? Doe
+    die eenmalig.
+- **Nog steeds geen dashboard na het opruimen hierboven**: heeft dit toestel
   "Special Offers" (advertenties op het vergrendelscherm)? Linkss kan dat
   niet overschrijven — dan zie je op het vergrendelscherm altijd een
   advertentie in plaats van de custom screensaver. Controleer via
