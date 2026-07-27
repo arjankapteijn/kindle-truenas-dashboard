@@ -11,6 +11,10 @@
 # event van com.lab126.powerd (bevestigd via community-voorbeelden, zie
 # README.md) en ververen precies op het moment dat het toestel gaat slapen
 # -- exact het moment dat er toch al een screensaver getoond gaat worden.
+# WiFi staat dan vaak al uit (los van het slapen gaan, na wat inactiviteit),
+# dus fetch_once() zet 'm expliciet aan en probeert een paar keer kort --
+# in het slechtste geval (geen WiFi bereikbaar) duurt dat ~25s voordat het
+# opgeeft en de vorige afbeelding laat staan.
 #
 # VOOR GEBRUIK AAN TE PASSEN:
 #   1. DASHBOARD_URL  — IP/poort van de kindle-truenas-dashboard-app op je LAN.
@@ -34,20 +38,29 @@ LOG_PATH="$WORKDIR/fetch.log"
 mkdir -p "$WORKDIR"
 
 fetch_once() {
-    # Korte timeout (8s, 1 poging): dit draait vlak voor het toestel gaat
-    # slapen, dus een tragere/afwezige verbinding mag de sleep-overgang niet
-    # merkbaar ophouden -- dan liever het vorige plaatje laten staan.
-    if wget -q -T 8 -t 1 -O "$TMP_PATH" "$DASHBOARD_URL"; then
-        mv "$TMP_PATH" "$SCREENSAVER_PATH"
-        # Vangnet voor het geval linkss net iets eerder dan wij de
-        # screensaver samenstelde: dwing alsnog een redraw af.
-        if command -v fbink >/dev/null 2>&1; then
-            fbink -g file="$SCREENSAVER_PATH" >/dev/null 2>&1
+    # WiFi staat op dit toestel na wat inactiviteit uit, los van het
+    # slapen gaan -- het goingToScreenSaver-event alleen betekent dus niet
+    # dat er al netwerk is. Zet 'm expliciet aan (bekend patroon uit de
+    # Kindle-jailbreak-community) en probeer een paar keer kort, in plaats
+    # van in één keer op te geven.
+    lipc-set-prop com.lab126.cmd wirelessEnable 1 2>/dev/null
+
+    attempt=0
+    while [ "$attempt" -lt 5 ]; do
+        if wget -q -T 4 -t 1 -O "$TMP_PATH" "$DASHBOARD_URL"; then
+            mv "$TMP_PATH" "$SCREENSAVER_PATH"
+            # Vangnet voor het geval linkss net iets eerder dan wij de
+            # screensaver samenstelde: dwing alsnog een redraw af.
+            if command -v fbink >/dev/null 2>&1; then
+                fbink -g file="$SCREENSAVER_PATH" >/dev/null 2>&1
+            fi
+            echo "$(date): dashboard ververst (poging $((attempt + 1)))" >> "$LOG_PATH"
+            return
         fi
-        echo "$(date): dashboard ververst" >> "$LOG_PATH"
-    else
-        echo "$(date): ophalen mislukt, sla deze ronde over" >> "$LOG_PATH"
-    fi
+        attempt=$((attempt + 1))
+        sleep 1
+    done
+    echo "$(date): ophalen mislukt na ${attempt} pogingen (WiFi kwam mogelijk niet op tijd omhoog), sla deze ronde over" >> "$LOG_PATH"
 }
 
 if command -v lipc-wait-event >/dev/null 2>&1; then

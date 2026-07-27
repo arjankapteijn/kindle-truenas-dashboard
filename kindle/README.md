@@ -117,6 +117,17 @@ soortgelijks nodig heeft:**
   `lipc-wait-event -mt "com.lab126.powerd" "*"` gebruikt en alle events
   blijft loggen): alles monitoren en zelf op de tekst `goingToScreenSaver`
   matchen, zoals het script nu doet.
+- **Nog een addertje na dat alles**: zodra het event goed binnenkwam, faalde
+  `wget` alsnog een paar keer op rij (geverifieerd in `fetch.log`: "ophalen
+  mislukt" direct na een echte, losgekoppelde sleep-cyclus). WiFi staat op
+  dit toestel namelijk na wat inactiviteit al uit, óók als het toestel zelf
+  nog niet slaapt — het `goingToScreenSaver`-event zet dat niet vanzelf
+  weer aan. `fetch_once()` doet daarom eerst
+  `lipc-set-prop com.lab126.cmd wirelessEnable 1` en probeert de download
+  vervolgens tot 5x met een korte timeout, in plaats van na één mislukte
+  poging al op te geven. In het slechtste geval (WiFi komt niet op tijd
+  omhoog) duurt dat ~25 seconden voor het opgeeft en de vorige afbeelding
+  laat staan.
 
 Waarom niet gewoon elke 5 minuten pollen? Dat was de oorspronkelijke opzet,
 maar op dit toestel bleek `fetch.log` gaten van 1,5 tot 2,5 uur te tonen
