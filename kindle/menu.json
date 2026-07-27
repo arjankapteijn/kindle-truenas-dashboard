@@ -5,6 +5,12 @@
         "action": "./fetch_and_display.sh",
         "priority": -998,
         "exitmenu": true
+    },
+    {
+        "name": "Diagnose: log alle powerd-events",
+        "action": "./diagnose_events.sh",
+        "priority": -997,
+        "exitmenu": true
     }
     ]
 }
